@@ -1,9 +1,10 @@
 #!/bin/bash
 # Self-contained setup + start script for Pegasus CloudPlay.
-# On first boot: installs KDE Plasma desktop (~10-15 min).
-# On resume: skips install (marker exists), starts services in ~30 sec.
+# Runs as root, creates 'pegasus' non-root user for the desktop session.
+# Steam and other apps require a non-root user to run.
 
 MARKER="/workspace/.pegasus-kde-ready"
+USER="pegasus"
 
 # ── First boot only ────────────────────────────────────────────────────────────
 if [ ! -f "$MARKER" ]; then
@@ -18,17 +19,11 @@ if [ ! -f "$MARKER" ]; then
         novnc python3-websockify \
         wget curl ca-certificates
 
-    # VNC xstartup — launches KDE Plasma on connect
-    mkdir -p /root/.vnc
-    printf '#!/bin/bash\nexport XDG_SESSION_TYPE=x11\nexec dbus-launch --exit-with-session startplasma-x11\n' \
-        > /root/.vnc/xstartup
-    chmod +x /root/.vnc/xstartup
-
     # noVNC: serve vnc.html directly (skips Lite/Full redirect page)
     ln -sf /usr/share/novnc/vnc.html /usr/share/novnc/index.html
 
     touch "$MARKER"
-    echo "[pegasus] KDE Plasma setup complete."
+    echo "[pegasus] Desktop setup complete."
 fi
 
 # ── Steam — install if missing (runs on every boot if needed) ──────────────────
@@ -46,14 +41,29 @@ if ! command -v steam >/dev/null 2>&1; then
 fi
 
 # ── Every boot ─────────────────────────────────────────────────────────────────
-echo "[pegasus] Starting TigerVNC on :1 (no password)..."
+# Ensure non-root user exists (Steam and most apps refuse to run as root)
+id -u "$USER" &>/dev/null || useradd -m -s /bin/bash "$USER"
+
+# Ensure workspace is writable by the user (Steam library, saves, etc.)
+chown "$USER":"$USER" /workspace 2>/dev/null || true
+
+# VNC xstartup — re-create on every boot in case container disk was reset
+mkdir -p /home/"$USER"/.vnc
+printf '#!/bin/bash\nexport XDG_SESSION_TYPE=x11\nexec dbus-launch --exit-with-session startplasma-x11\n' \
+    > /home/"$USER"/.vnc/xstartup
+chmod +x /home/"$USER"/.vnc/xstartup
+chown -R "$USER":"$USER" /home/"$USER"
+
+echo "[pegasus] Starting TigerVNC as $USER on :1 (no password)..."
 mkdir -p /tmp/.X11-unix
 chmod 1777 /tmp/.X11-unix
 rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
-vncserver -kill :1 2>/dev/null || true
 
-# No VNC password — RunPod HTTPS proxy is the access boundary
-vncserver :1 -geometry 1920x1080 -depth 24 -rfbport 5901 -SecurityTypes None
+# Kill any existing VNC server
+su - "$USER" -c "vncserver -kill :1 2>/dev/null" || true
+
+# Start VNC as non-root user — no password (RunPod HTTPS proxy is the boundary)
+su - "$USER" -c "vncserver :1 -geometry 1920x1080 -depth 24 -rfbport 5901 -SecurityTypes None"
 
 sleep 2
 
