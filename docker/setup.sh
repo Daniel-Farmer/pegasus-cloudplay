@@ -48,6 +48,10 @@ fi
 # Enable user namespaces — required by Steam's sandbox (Proton/bubblewrap)
 sysctl -w kernel.unprivileged_userns_clone=1 2>/dev/null || true
 
+# Allow bubblewrap (Steam's sandbox tool) to create namespaces via setuid.
+# Needed when the Docker seccomp profile blocks unshare(CLONE_NEWUSER).
+command -v bwrap >/dev/null 2>&1 && chmod u+s /usr/bin/bwrap 2>/dev/null || true
+
 # Ensure non-root user exists
 id -u "$PEGASUS_USER" &>/dev/null || useradd -m -s /bin/bash "$PEGASUS_USER"
 
