@@ -70,8 +70,8 @@ mkdir -p /tmp/.X11-unix
 chmod 1777 /tmp/.X11-unix
 rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
 
-su - "$PEGASUS_USER" -c "vncserver -kill :1 2>/dev/null" || true
-su - "$PEGASUS_USER" -c "vncserver :1 -geometry 1920x1080 -depth 24 -rfbport 5901 -SecurityTypes None"
+su - "$PEGASUS_USER" -c "HOME=/home/$PEGASUS_USER vncserver -kill :1 2>/dev/null" || true
+su - "$PEGASUS_USER" -c "HOME=/home/$PEGASUS_USER vncserver :1 -geometry 1920x1080 -depth 24 -rfbport 5901 -SecurityTypes None"
 
 sleep 2
 
