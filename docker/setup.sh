@@ -57,5 +57,5 @@ vncserver :1 -geometry 1920x1080 -depth 24 -rfbport 5901 -SecurityTypes None
 
 sleep 2
 
-echo "[pegasus] Starting noVNC on port 6901...")
+echo "[pegasus] Starting noVNC on port 6901..."
 exec python3 -m websockify --web=/usr/share/novnc 6901 localhost:5901
