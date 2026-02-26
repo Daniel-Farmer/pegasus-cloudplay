@@ -1,0 +1,24 @@
+version: 2.1
+
+jobs:
+  build-and-push:
+    machine:
+      image: ubuntu-2204:current
+    steps:
+      - checkout
+      - run:
+          name: Build Docker image
+          command: docker build -t $DOCKERHUB_USERNAME/pegasus-gaming:latest docker/
+      - run:
+          name: Push to Docker Hub
+          command: |
+            echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+            docker push $DOCKERHUB_USERNAME/pegasus-gaming:latest
+
+workflows:
+  build:
+    jobs:
+      - build-and-push:
+          filters:
+            branches:
+              only: main
