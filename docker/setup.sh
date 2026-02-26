@@ -4,11 +4,13 @@
 # Steam and other apps require a non-root user to run.
 
 MARKER="/workspace/.pegasus-kde-ready"
-USER="pegasus"
+PEGASUS_USER="pegasus"
 
-# ── First boot only ────────────────────────────────────────────────────────────
-if [ ! -f "$MARKER" ]; then
-    echo "[pegasus] First boot — installing KDE Plasma desktop..."
+# ── Install desktop if marker missing OR packages not present ──────────────────
+# (Marker may exist on the volume from a previous pod, but the container disk
+#  is fresh — so we check for vncserver to detect this case.)
+if [ ! -f "$MARKER" ] || ! command -v vncserver >/dev/null 2>&1; then
+    echo "[pegasus] Installing KDE Plasma desktop..."
     export DEBIAN_FRONTEND=noninteractive
 
     apt-get update -qq
@@ -17,7 +19,7 @@ if [ ! -f "$MARKER" ]; then
         kde-plasma-desktop konsole \
         tigervnc-standalone-server \
         novnc python3-websockify \
-        wget curl ca-certificates
+        curl ca-certificates
 
     # noVNC: serve vnc.html directly (skips Lite/Full redirect page)
     ln -sf /usr/share/novnc/vnc.html /usr/share/novnc/index.html
@@ -26,13 +28,13 @@ if [ ! -f "$MARKER" ]; then
     echo "[pegasus] Desktop setup complete."
 fi
 
-# ── Steam — install if missing (runs on every boot if needed) ──────────────────
+# ── Steam — install if missing ──────────────────────────────────────────────────
 if ! command -v steam >/dev/null 2>&1; then
     echo "[pegasus] Steam not found — installing..."
     export DEBIAN_FRONTEND=noninteractive
     dpkg --add-architecture i386 || true
     apt-get update -qq || true
-    wget -qO /tmp/steam.deb \
+    curl -fsSL -o /tmp/steam.deb \
         https://cdn.akamai.steamstatic.com/client/installer/steam.deb || true
     dpkg -i /tmp/steam.deb || true
     apt-get install -fy -qq || true
@@ -42,28 +44,25 @@ fi
 
 # ── Every boot ─────────────────────────────────────────────────────────────────
 # Ensure non-root user exists (Steam and most apps refuse to run as root)
-id -u "$USER" &>/dev/null || useradd -m -s /bin/bash "$USER"
+id -u "$PEGASUS_USER" &>/dev/null || useradd -m -s /bin/bash "$PEGASUS_USER"
 
 # Ensure workspace is writable by the user (Steam library, saves, etc.)
-chown "$USER":"$USER" /workspace 2>/dev/null || true
+chown "$PEGASUS_USER":"$PEGASUS_USER" /workspace 2>/dev/null || true
 
 # VNC xstartup — re-create on every boot in case container disk was reset
-mkdir -p /home/"$USER"/.vnc
+mkdir -p /home/"$PEGASUS_USER"/.vnc
 printf '#!/bin/bash\nexport XDG_SESSION_TYPE=x11\nexec dbus-launch --exit-with-session startplasma-x11\n' \
-    > /home/"$USER"/.vnc/xstartup
-chmod +x /home/"$USER"/.vnc/xstartup
-chown -R "$USER":"$USER" /home/"$USER"
+    > /home/"$PEGASUS_USER"/.vnc/xstartup
+chmod +x /home/"$PEGASUS_USER"/.vnc/xstartup
+chown -R "$PEGASUS_USER":"$PEGASUS_USER" /home/"$PEGASUS_USER"
 
-echo "[pegasus] Starting TigerVNC as $USER on :1 (no password)..."
+echo "[pegasus] Starting TigerVNC as $PEGASUS_USER on :1 (no password)..."
 mkdir -p /tmp/.X11-unix
 chmod 1777 /tmp/.X11-unix
 rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
 
-# Kill any existing VNC server
-su - "$USER" -c "vncserver -kill :1 2>/dev/null" || true
-
-# Start VNC as non-root user — no password (RunPod HTTPS proxy is the boundary)
-su - "$USER" -c "vncserver :1 -geometry 1920x1080 -depth 24 -rfbport 5901 -SecurityTypes None"
+su - "$PEGASUS_USER" -c "vncserver -kill :1 2>/dev/null" || true
+su - "$PEGASUS_USER" -c "vncserver :1 -geometry 1920x1080 -depth 24 -rfbport 5901 -SecurityTypes None"
 
 sleep 2
 
