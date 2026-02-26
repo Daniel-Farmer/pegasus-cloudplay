@@ -1,14 +1,11 @@
 #!/bin/bash
 # Self-contained setup + start script for Pegasus CloudPlay.
 # Runs as root, creates 'pegasus' non-root user for the desktop session.
-# Steam and other apps require a non-root user to run.
 
 MARKER="/workspace/.pegasus-kde-ready"
 PEGASUS_USER="pegasus"
 
-# ── Install desktop if marker missing OR packages not present ──────────────────
-# (Marker may exist on the volume from a previous pod, but the container disk
-#  is fresh — so we check for vncserver to detect this case.)
+# ── Install desktop if packages missing ────────────────────────────────────────
 if [ ! -f "$MARKER" ] || ! command -v vncserver >/dev/null 2>&1; then
     echo "[pegasus] Installing KDE Plasma desktop..."
     export DEBIAN_FRONTEND=noninteractive
@@ -19,9 +16,9 @@ if [ ! -f "$MARKER" ] || ! command -v vncserver >/dev/null 2>&1; then
         kde-plasma-desktop konsole \
         tigervnc-standalone-server \
         novnc python3-websockify \
-        curl ca-certificates
+        curl ca-certificates sudo
 
-    # noVNC: serve vnc.html directly (skips Lite/Full redirect page)
+    # noVNC: serve vnc.html directly
     ln -sf /usr/share/novnc/vnc.html /usr/share/novnc/index.html
 
     touch "$MARKER"
@@ -30,10 +27,12 @@ fi
 
 # ── Steam — install if missing ──────────────────────────────────────────────────
 if ! command -v steam >/dev/null 2>&1; then
-    echo "[pegasus] Steam not found — installing..."
+    echo "[pegasus] Installing Steam..."
     export DEBIAN_FRONTEND=noninteractive
     dpkg --add-architecture i386 || true
     apt-get update -qq || true
+    # Install 32-bit libs Steam needs
+    apt-get install -y libc6:i386 libgl1:i386 2>/dev/null || true
     curl -fsSL -o /tmp/steam.deb \
         https://cdn.akamai.steamstatic.com/client/installer/steam.deb || true
     dpkg -i /tmp/steam.deb || true
@@ -43,20 +42,27 @@ if ! command -v steam >/dev/null 2>&1; then
 fi
 
 # ── Every boot ─────────────────────────────────────────────────────────────────
-# Ensure non-root user exists (Steam and most apps refuse to run as root)
+# Enable user namespaces — required by Steam's sandbox (Proton/bubblewrap)
+sysctl -w kernel.unprivileged_userns_clone=1 2>/dev/null || true
+
+# Ensure non-root user exists
 id -u "$PEGASUS_USER" &>/dev/null || useradd -m -s /bin/bash "$PEGASUS_USER"
 
-# Ensure workspace is writable by the user (Steam library, saves, etc.)
+# Passwordless sudo so user can install packages from the desktop
+echo "$PEGASUS_USER ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/pegasus
+chmod 440 /etc/sudoers.d/pegasus
+
+# Workspace permissions
 chown "$PEGASUS_USER":"$PEGASUS_USER" /workspace 2>/dev/null || true
 
-# VNC xstartup — re-create on every boot in case container disk was reset
+# VNC xstartup — re-create every boot in case container disk was reset
 mkdir -p /home/"$PEGASUS_USER"/.vnc
 printf '#!/bin/bash\nexport XDG_SESSION_TYPE=x11\nexec dbus-launch --exit-with-session startplasma-x11\n' \
     > /home/"$PEGASUS_USER"/.vnc/xstartup
 chmod +x /home/"$PEGASUS_USER"/.vnc/xstartup
 chown -R "$PEGASUS_USER":"$PEGASUS_USER" /home/"$PEGASUS_USER"
 
-echo "[pegasus] Starting TigerVNC as $PEGASUS_USER on :1 (no password)..."
+echo "[pegasus] Starting TigerVNC as $PEGASUS_USER on :1..."
 mkdir -p /tmp/.X11-unix
 chmod 1777 /tmp/.X11-unix
 rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
