@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Steam
+# vglrun routes OpenGL to the NVIDIA GPU via EGL (/dev/nvidia0).
+# -silent starts Steam minimized to tray so the desktop is visible on login.
+Exec=vglrun -d egl:/dev/nvidia0 steam -silent
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
