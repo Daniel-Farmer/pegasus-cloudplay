@@ -24,6 +24,22 @@ if [ ! -f "$MARKER" ] || ! command -v vncserver >/dev/null 2>&1; then
     # noVNC: serve vnc.html directly
     ln -sf /usr/share/novnc/vnc.html /usr/share/novnc/index.html
 
+    # ── Win11OS-dark KDE theme ──────────────────────────────────────────────────
+    apt-get install -y --no-install-recommends git qt5-style-kvantum 2>/dev/null || true
+    # Clone and install as the pegasus user (creates ~/.local/share/plasma/...)
+    id -u "$PEGASUS_USER" &>/dev/null || useradd -m -s /bin/bash "$PEGASUS_USER"
+    su - "$PEGASUS_USER" -c "
+        HOME=/home/$PEGASUS_USER
+        git clone --depth=1 https://github.com/yeyushengfan258/Win11OS-kde /tmp/Win11OS-kde 2>/dev/null || true
+        if [ -f /tmp/Win11OS-kde/install.sh ]; then
+            cd /tmp/Win11OS-kde && bash install.sh -d 2>/dev/null || true
+        fi
+        rm -rf /tmp/Win11OS-kde
+        # Write theme into KDE config so it loads on first plasma start
+        kwriteconfig5 --file kdeglobals --group KDE \
+            --key LookAndFeelPackage 'com.github.yeyushengfan258.Win11OS-dark' 2>/dev/null || true
+    " || true
+
     touch "$MARKER"
     echo "[pegasus] Desktop setup complete."
 fi
