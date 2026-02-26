@@ -30,6 +30,20 @@ if [ ! -f "$MARKER" ]; then
     echo "[pegasus] Desktop setup complete."
 fi
 
+# ── Steam — install if missing (survives pod termination) ──────────────────────
+if ! command -v steam >/dev/null 2>&1; then
+    echo "[pegasus] Steam not found — installing..."
+    export DEBIAN_FRONTEND=noninteractive
+    dpkg --add-architecture i386 || true
+    apt-get update -qq || true
+    wget -qO /tmp/steam.deb \
+        https://cdn.akamai.steamstatic.com/client/installer/steam.deb || true
+    dpkg -i /tmp/steam.deb || true
+    apt-get install -fy -qq || true
+    rm -f /tmp/steam.deb
+    echo "[pegasus] Steam install done."
+fi
+
 # ── Every boot ─────────────────────────────────────────────────────────────────
 echo "[pegasus] Starting TigerVNC on :1 (no password)..."
 mkdir -p /tmp/.X11-unix
