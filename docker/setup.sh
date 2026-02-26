@@ -5,6 +5,9 @@
 MARKER="/workspace/.pegasus-kde-ready"
 PEGASUS_USER="pegasus"
 
+# Ensure /workspace exists (RunPod mounts a volume here; Vast.ai just uses the disk)
+mkdir -p /workspace
+
 # ── Install desktop if packages missing ────────────────────────────────────────
 if [ ! -f "$MARKER" ] || ! command -v vncserver >/dev/null 2>&1; then
     echo "[pegasus] Installing KDE Plasma desktop..."
