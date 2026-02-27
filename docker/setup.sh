@@ -14,38 +14,30 @@ dpkg --configure -a 2>/dev/null || true
 
 # ── Install desktop if packages missing ────────────────────────────────────────
 if [ ! -f "$MARKER" ] || ! command -v vncserver >/dev/null 2>&1; then
-    echo "[pegasus] Installing XFCE desktop..."
+    echo "[pegasus] Installing Zorin OS Lite desktop..."
 
     apt-get update -qq
     apt-get install -y --no-install-recommends \
+        software-properties-common \
+        curl ca-certificates sudo \
         dbus-x11 \
-        xfce4 xfce4-terminal xfce4-whiskermenu-plugin \
         tigervnc-standalone-server \
         novnc python3-websockify \
-        curl ca-certificates sudo \
-        policykit-1 \
-        git
+        policykit-1
+
+    # Add Zorin OS official PPAs
+    add-apt-repository -y ppa:zorinos/stable
+    add-apt-repository -y ppa:zorinos/patches
+    apt-get update -qq
+
+    # Install Zorin OS Lite desktop (XFCE-based)
+    apt-get install -y zorin-os-lite-desktop
 
     # noVNC: serve vnc.html directly
     ln -sf /usr/share/novnc/vnc.html /usr/share/novnc/index.html
 
-    # ── Windows 11 GTK theme (Colloid-dark) ────────────────────────────────────
-    id -u "$PEGASUS_USER" &>/dev/null || useradd -m -s /bin/bash "$PEGASUS_USER"
-    git clone --depth=1 https://github.com/vinceliuice/Colloid-gtk-theme /tmp/Colloid-gtk-theme 2>/dev/null || true
-    if [ -f /tmp/Colloid-gtk-theme/install.sh ]; then
-        bash /tmp/Colloid-gtk-theme/install.sh --tweaks 'windows' --color 'dark' --dest /usr/share/themes 2>/dev/null || true
-    fi
-    rm -rf /tmp/Colloid-gtk-theme
-
-    # ── Colloid icon theme ──────────────────────────────────────────────────────
-    git clone --depth=1 https://github.com/vinceliuice/Colloid-icon-theme /tmp/Colloid-icon-theme 2>/dev/null || true
-    if [ -f /tmp/Colloid-icon-theme/install.sh ]; then
-        bash /tmp/Colloid-icon-theme/install.sh --dest /usr/share/icons 2>/dev/null || true
-    fi
-    rm -rf /tmp/Colloid-icon-theme
-
     touch "$MARKER"
-    echo "[pegasus] Desktop setup complete."
+    echo "[pegasus] Zorin OS desktop setup complete."
 fi
 
 # ── Steam — install if missing ──────────────────────────────────────────────────
@@ -85,11 +77,9 @@ printf '#!/bin/bash\nexport XDG_SESSION_TYPE=x11\nexec dbus-launch --exit-with-s
     > /home/"$PEGASUS_USER"/.vnc/xstartup
 chmod +x /home/"$PEGASUS_USER"/.vnc/xstartup
 
-# Apply Colloid-dark Windows theme + disable screen locker — every boot
+# Disable screen locker — every boot
 su - "$PEGASUS_USER" -c "
     HOME=/home/$PEGASUS_USER
-    xfconf-query -c xsettings -p /Net/ThemeName -s 'Colloid-Dark-Windows' --create -t string 2>/dev/null || true
-    xfconf-query -c xsettings -p /Net/IconThemeName -s 'Colloid-dark' --create -t string 2>/dev/null || true
     xfconf-query -c xfce4-screensaver -p /saver/enabled -s false --create -t bool 2>/dev/null || true
     xfconf-query -c xfce4-screensaver -p /lock/enabled -s false --create -t bool 2>/dev/null || true
 " || true
@@ -114,7 +104,6 @@ sleep 2
 
 echo "[pegasus] Starting noVNC on port 6901..."
 # Loop instead of exec — if websockify exits for any reason, restart it.
-# This keeps the onstart process alive so Vast.ai doesn't mark the instance stopped.
 while true; do
     python3 -m websockify --web=/usr/share/novnc 6901 localhost:5901 2>&1 | tee -a /workspace/novnc.log
     echo "[pegasus] noVNC exited at $(date), restarting in 5s..."
