@@ -66,7 +66,7 @@ WRAPPER
 fi
 
 # ── Steam — install if missing ──────────────────────────────────────────────────
-if ! command -v steam >/dev/null 2>&1; then
+if [ ! -f /usr/bin/steam ]; then
     echo "[pegasus] Installing Steam..."
     dpkg --add-architecture i386 || true
     apt-get update -qq || true
