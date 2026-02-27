@@ -85,6 +85,16 @@ mkdir -p /home/"$PEGASUS_USER"/.vnc
 printf '#!/bin/bash\nexport XDG_SESSION_TYPE=x11\nexec dbus-launch --exit-with-session startplasma-x11\n' \
     > /home/"$PEGASUS_USER"/.vnc/xstartup
 chmod +x /home/"$PEGASUS_USER"/.vnc/xstartup
+
+# Disable KWallet (no password prompts) and screen locker — re-apply every boot
+su - "$PEGASUS_USER" -c "
+    HOME=/home/$PEGASUS_USER
+    kwriteconfig5 --file kwalletrc --group Wallet --key Enabled false 2>/dev/null || true
+    kwriteconfig5 --file kwalletrc --group Wallet --key 'First Use' false 2>/dev/null || true
+    kwriteconfig5 --file kscreenlockerrc --group Daemon --key Autolock false 2>/dev/null || true
+    kwriteconfig5 --file kscreenlockerrc --group Daemon --key LockOnResume false 2>/dev/null || true
+" || true
+
 chown -R "$PEGASUS_USER":"$PEGASUS_USER" /home/"$PEGASUS_USER"
 
 echo "[pegasus] Starting TigerVNC as $PEGASUS_USER on :1..."
