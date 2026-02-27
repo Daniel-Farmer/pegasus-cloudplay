@@ -22,7 +22,8 @@ if [ ! -f "$MARKER" ] || ! command -v vncserver >/dev/null 2>&1; then
         kde-plasma-desktop konsole \
         tigervnc-standalone-server \
         novnc python3-websockify \
-        curl ca-certificates sudo
+        curl ca-certificates sudo \
+        policykit-1
 
     # noVNC: serve vnc.html directly
     ln -sf /usr/share/novnc/vnc.html /usr/share/novnc/index.html
@@ -96,6 +97,12 @@ su - "$PEGASUS_USER" -c "
 " || true
 
 chown -R "$PEGASUS_USER":"$PEGASUS_USER" /home/"$PEGASUS_USER"
+
+# Start D-Bus system daemon + polkit (needed by Steam for package privilege escalation)
+mkdir -p /run/dbus
+dbus-daemon --system --fork 2>/dev/null || true
+sleep 1
+/usr/lib/polkit-1/polkitd --no-debug &>/dev/null &
 
 echo "[pegasus] Starting TigerVNC as $PEGASUS_USER on :1..."
 mkdir -p /tmp/.X11-unix
