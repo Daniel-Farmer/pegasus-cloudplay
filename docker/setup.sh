@@ -81,20 +81,15 @@ chmod 440 /etc/sudoers.d/pegasus
 # Workspace permissions
 chown "$PEGASUS_USER":"$PEGASUS_USER" /workspace 2>/dev/null || true
 
-# VNC xstartup — re-create every boot
-mkdir -p /home/"$PEGASUS_USER"/.vnc
+# VNC xstartup — run as root so Steam can create user namespaces
+mkdir -p /root/.vnc
 printf '#!/bin/bash\nexport XDG_SESSION_TYPE=x11\nexec dbus-launch --exit-with-session startxfce4\n' \
-    > /home/"$PEGASUS_USER"/.vnc/xstartup
-chmod +x /home/"$PEGASUS_USER"/.vnc/xstartup
+    > /root/.vnc/xstartup
+chmod +x /root/.vnc/xstartup
 
-# Disable screen locker — every boot
-su - "$PEGASUS_USER" -c "
-    HOME=/home/$PEGASUS_USER
-    xfconf-query -c xfce4-screensaver -p /saver/enabled -s false --create -t bool 2>/dev/null || true
-    xfconf-query -c xfce4-screensaver -p /lock/enabled -s false --create -t bool 2>/dev/null || true
-" || true
-
-chown -R "$PEGASUS_USER":"$PEGASUS_USER" /home/"$PEGASUS_USER"
+# Disable screen locker for root session
+xfconf-query -c xfce4-screensaver -p /saver/enabled -s false --create -t bool 2>/dev/null || true
+xfconf-query -c xfce4-screensaver -p /lock/enabled -s false --create -t bool 2>/dev/null || true
 
 # Start D-Bus system daemon + polkit (needed by Steam)
 mkdir -p /run/dbus
@@ -102,13 +97,13 @@ dbus-daemon --system --fork 2>/dev/null || true
 sleep 1
 /usr/lib/polkit-1/polkitd --no-debug &>/dev/null &
 
-echo "[pegasus] Starting TigerVNC as $PEGASUS_USER on :1..."
+echo "[pegasus] Starting TigerVNC as root on :1..."
 mkdir -p /tmp/.X11-unix
 chmod 1777 /tmp/.X11-unix
 rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
 
-su - "$PEGASUS_USER" -c "HOME=/home/$PEGASUS_USER vncserver -kill :1 2>/dev/null" || true
-su - "$PEGASUS_USER" -c "HOME=/home/$PEGASUS_USER vncserver :1 -geometry 1920x1080 -depth 24 -rfbport 5901 -SecurityTypes None"
+HOME=/root vncserver -kill :1 2>/dev/null || true
+HOME=/root vncserver :1 -geometry 1920x1080 -depth 24 -rfbport 5901 -SecurityTypes None
 
 sleep 2
 
