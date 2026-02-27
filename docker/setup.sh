@@ -33,6 +33,9 @@ if [ ! -f "$MARKER" ] || ! command -v vncserver >/dev/null 2>&1; then
     # Install Zorin OS Lite desktop (XFCE-based)
     apt-get install -y zorin-os-lite-desktop
 
+    # uidmap provides newuidmap/newgidmap setuid helpers — needed for Steam namespaces
+    apt-get install -y --no-install-recommends uidmap 2>/dev/null || true
+
     # noVNC: serve vnc.html directly
     ln -sf /usr/share/novnc/vnc.html /usr/share/novnc/index.html
 
@@ -55,11 +58,18 @@ if ! command -v steam >/dev/null 2>&1; then
 fi
 
 # ── Every boot ─────────────────────────────────────────────────────────────────
-# Enable user namespaces — required by Steam's sandbox (Proton/bubblewrap)
+# Enable user namespaces — try every available method (Vast.ai ignores --cap-add)
+echo 1 > /proc/sys/kernel/unprivileged_userns_clone 2>/dev/null || true
+echo 15000 > /proc/sys/user/max_user_namespaces 2>/dev/null || true
 sysctl -w kernel.unprivileged_userns_clone=1 2>/dev/null || true
 
-# Allow bubblewrap (Steam's sandbox tool) to create namespaces via setuid.
-command -v bwrap >/dev/null 2>&1 && chmod u+s /usr/bin/bwrap 2>/dev/null || true
+# setuid on unshare + bwrap so non-root users can create namespaces (Steam check)
+command -v unshare >/dev/null 2>&1 && chmod u+s /usr/bin/unshare 2>/dev/null || true
+command -v bwrap   >/dev/null 2>&1 && chmod u+s /usr/bin/bwrap   2>/dev/null || true
+
+# UID/GID mappings for pegasus — required by newuidmap/newgidmap for Steam sandbox
+grep -q "^pegasus:" /etc/subuid 2>/dev/null || echo "pegasus:100000:65536" >> /etc/subuid
+grep -q "^pegasus:" /etc/subgid 2>/dev/null || echo "pegasus:100000:65536" >> /etc/subgid
 
 # Ensure non-root user exists
 id -u "$PEGASUS_USER" &>/dev/null || useradd -m -s /bin/bash "$PEGASUS_USER"
