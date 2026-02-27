@@ -8,10 +8,13 @@ PEGASUS_USER="pegasus"
 # Ensure /workspace exists (RunPod mounts a volume here; Vast.ai just uses the disk)
 mkdir -p /workspace
 
+# ── Recover from any interrupted dpkg state ────────────────────────────────────
+export DEBIAN_FRONTEND=noninteractive
+dpkg --configure -a 2>/dev/null || true
+
 # ── Install desktop if packages missing ────────────────────────────────────────
 if [ ! -f "$MARKER" ] || ! command -v vncserver >/dev/null 2>&1; then
     echo "[pegasus] Installing KDE Plasma desktop..."
-    export DEBIAN_FRONTEND=noninteractive
 
     apt-get update -qq
     apt-get install -y --no-install-recommends \
@@ -47,7 +50,6 @@ fi
 # ── Steam — install if missing ──────────────────────────────────────────────────
 if ! command -v steam >/dev/null 2>&1; then
     echo "[pegasus] Installing Steam..."
-    export DEBIAN_FRONTEND=noninteractive
     dpkg --add-architecture i386 || true
     apt-get update -qq || true
     # Install 32-bit libs Steam needs
@@ -96,4 +98,10 @@ su - "$PEGASUS_USER" -c "HOME=/home/$PEGASUS_USER vncserver :1 -geometry 1920x10
 sleep 2
 
 echo "[pegasus] Starting noVNC on port 6901..."
-exec python3 -m websockify --web=/usr/share/novnc 6901 localhost:5901
+# Loop instead of exec — if websockify exits for any reason, restart it.
+# This keeps the onstart process alive so Vast.ai doesn't mark the instance stopped.
+while true; do
+    python3 -m websockify --web=/usr/share/novnc 6901 localhost:5901 2>&1 | tee -a /workspace/novnc.log
+    echo "[pegasus] noVNC exited at $(date), restarting in 5s..."
+    sleep 5
+done

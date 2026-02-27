@@ -72,13 +72,21 @@ function App(): JSX.Element {
       } else if (data?.status === 'stopped') {
         clearInterval(interval)
         setPodStatus('stopped')
+      } else if (data?.status === 'none') {
+        // Pod was never created or was cleaned up — stop polling and reset
+        clearInterval(interval)
+        setPodStatus('none')
       }
     }, 5000)
   }
 
   async function handleLaunch() {
     setPodStatus('starting')
-    await supabase.functions.invoke('pod-manage', { body: { action: 'start' } })
+    const { data, error } = await supabase.functions.invoke('pod-manage', { body: { action: 'start' } })
+    if (error || data?.error) {
+      setPodStatus('none')
+      return
+    }
     startPolling()
   }
 
