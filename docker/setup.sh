@@ -34,7 +34,29 @@ if [ ! -f "$MARKER" ] || ! command -v vncserver >/dev/null 2>&1; then
     apt-get install -y zorin-os-lite-desktop
 
     # uidmap provides newuidmap/newgidmap setuid helpers — needed for Steam namespaces
-    apt-get install -y --no-install-recommends uidmap 2>/dev/null || true
+    apt-get install -y --no-install-recommends uidmap gcc 2>/dev/null || true
+
+    # Compile a tiny LD_PRELOAD shim — makes Steam think it's running as UID 1000
+    # (Steam refuses to launch as root; the shim fakes getuid/geteuid while the
+    #  process remains root so user-namespace creation still works)
+    cat > /tmp/steamuid.c << 'CSRC'
+#include <sys/types.h>
+uid_t getuid(void)  { return 1000; }
+uid_t geteuid(void) { return 1000; }
+gid_t getgid(void)  { return 1000; }
+gid_t getegid(void) { return 1000; }
+CSRC
+    gcc -shared -fPIC -nostartfiles -o /usr/local/lib/steamuid.so /tmp/steamuid.c 2>/dev/null || true
+    rm -f /tmp/steamuid.c
+
+    # Steam wrapper — shadows /usr/bin/steam, injects the UID shim
+    cat > /usr/local/bin/steam << 'WRAPPER'
+#!/bin/bash
+export LD_PRELOAD=/usr/local/lib/steamuid.so
+export HOME=/root
+exec /usr/bin/steam "$@"
+WRAPPER
+    chmod +x /usr/local/bin/steam
 
     # noVNC: serve vnc.html directly
     ln -sf /usr/share/novnc/vnc.html /usr/share/novnc/index.html
