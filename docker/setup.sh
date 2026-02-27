@@ -93,6 +93,14 @@ command -v bwrap   >/dev/null 2>&1 && chmod u+s /usr/bin/bwrap   2>/dev/null || 
 grep -q "^pegasus:" /etc/subuid 2>/dev/null || echo "pegasus:100000:65536" >> /etc/subuid
 grep -q "^pegasus:" /etc/subgid 2>/dev/null || echo "pegasus:100000:65536" >> /etc/subgid
 
+# Inject LD_PRELOAD shim into /usr/bin/steam — the .desktop file uses the full
+# path /usr/bin/steam directly, bypassing /usr/local/bin/steam wrapper.
+# This ensures the uid-faking shim is always active regardless of launch method.
+if [ -f /usr/bin/steam ] && ! grep -q "steamuid.so" /usr/bin/steam; then
+    sed -i '2i export LD_PRELOAD=/usr/local/lib/steamuid.so' /usr/bin/steam
+    echo "[pegasus] LD_PRELOAD uid shim injected into /usr/bin/steam"
+fi
+
 # Ensure non-root user exists
 id -u "$PEGASUS_USER" &>/dev/null || useradd -m -s /bin/bash "$PEGASUS_USER"
 
