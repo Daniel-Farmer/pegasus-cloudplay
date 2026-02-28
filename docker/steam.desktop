@@ -3,7 +3,10 @@ Type=Application
 Name=Steam
 # vglrun routes OpenGL to the NVIDIA GPU via EGL (/dev/nvidia0).
 # -silent starts Steam minimized to tray so the desktop is visible on login.
-Exec=vglrun -d egl:/dev/nvidia0 steam -silent
+# -no-cef-sandbox: prevents CEF sandbox errors when container namespaces are restricted.
+# PRESSURE_VESSEL_FILESYSTEMS_RO=/: fallback for pressure-vessel when bwrap can't
+#   create full namespaces inside the container.
+Exec=env STEAM_RUNTIME_PREFER_HOST_LIBRARIES=0 PRESSURE_VESSEL_FILESYSTEMS_RO=/ vglrun -d egl:/dev/nvidia0 steam -silent -no-cef-sandbox
 Hidden=false
 NoDisplay=false
 X-GNOME-Autostart-enabled=true
