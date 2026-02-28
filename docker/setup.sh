@@ -25,8 +25,16 @@ if [ ! -f "$MARKER" ] || ! command -v vncserver >/dev/null 2>&1; then
         tigervnc-standalone-server \
         novnc python3-websockify \
         policykit-1 \
-        uidmap bubblewrap \
-        virtualgl
+        uidmap bubblewrap
+
+    # VirtualGL — not in default Ubuntu repos, install from official release
+    if ! command -v vglrun >/dev/null 2>&1; then
+        echo "[pegasus] Installing VirtualGL..."
+        curl -fsSL -o /tmp/virtualgl.deb \
+            https://github.com/VirtualGL/virtualgl/releases/download/3.1.2/virtualgl_3.1.2_amd64.deb
+        dpkg -i /tmp/virtualgl.deb || apt-get install -fy -qq
+        rm -f /tmp/virtualgl.deb
+    fi
 
     # noVNC: serve vnc.html directly
     ln -sf /usr/share/novnc/vnc.html /usr/share/novnc/index.html
