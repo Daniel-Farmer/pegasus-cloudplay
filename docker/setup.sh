@@ -3,7 +3,8 @@
 # Fetched and run by Vast.ai on every boot from a base ubuntu:22.04 image.
 # Installs desktop, Steam, VNC, then runs the desktop as non-root 'pegasus' user.
 
-set -e
+# No set -e: many operations are best-effort (namespace config, device perms, etc.)
+# Each critical section handles its own errors.
 
 MARKER="/workspace/.pegasus-desktop-ready"
 PEGASUS_USER="pegasus"
@@ -93,7 +94,7 @@ printf '#!/bin/bash\nexport XDG_SESSION_TYPE=x11\nexec dbus-launch --exit-with-s
     > /home/$PEGASUS_USER/.vnc/xstartup
 chmod +x /home/$PEGASUS_USER/.vnc/xstartup
 
-echo "${VNC_PW:-pegasus}" | vncpasswd -f > /home/$PEGASUS_USER/.vnc/passwd
+echo "${VNC_PW:-pegasus}" | /usr/bin/vncpasswd -f > /home/$PEGASUS_USER/.vnc/passwd
 chmod 600 /home/$PEGASUS_USER/.vnc/passwd
 
 chown -R $PEGASUS_USER:$PEGASUS_USER /home/$PEGASUS_USER/.vnc
@@ -122,11 +123,11 @@ echo "[pegasus] Starting TigerVNC as $PEGASUS_USER on :1..."
 mkdir -p /tmp/.X11-unix
 chmod 1777 /tmp/.X11-unix
 rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
-su - $PEGASUS_USER -c "vncserver -kill :1 2>/dev/null" || true
+su - $PEGASUS_USER -c "/usr/bin/vncserver -kill :1 2>/dev/null" || true
 
 su - $PEGASUS_USER -c "
     export DISPLAY=:1
-    vncserver :1 \
+    /usr/bin/vncserver :1 \
         -geometry 1920x1080 \
         -depth 24 \
         -rfbport 5901 \
