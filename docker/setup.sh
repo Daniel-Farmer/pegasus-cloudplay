@@ -131,7 +131,7 @@ su - $PEGASUS_USER -c "
         -geometry 1920x1080 \
         -depth 24 \
         -rfbport 5901 \
-        -SecurityTypes VncAuth
+        -SecurityTypes None
 "
 
 sleep 2
