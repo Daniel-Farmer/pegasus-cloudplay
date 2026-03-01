@@ -8,14 +8,25 @@ interface CloudPCViewProps {
 
 type WebviewEl = HTMLElement & { executeJavaScript: (code: string) => Promise<unknown> }
 
+const api = (window as any).electronAPI as {
+  enterCloudPC: () => void
+  exitCloudPC: () => void
+} | undefined
+
 function CloudPCView({ streamUrl, onBack }: CloudPCViewProps): JSX.Element {
   const webviewRef = useRef<WebviewEl>(null)
+
+  // Maximize window on mount, restore on unmount
+  useEffect(() => {
+    api?.enterCloudPC()
+    return () => api?.exitCloudPC()
+  }, [])
 
   useEffect(() => {
     const wv = webviewRef.current
     if (!wv) return
 
-    const autoFillPassword = () => {
+    const onDomReady = () => {
       // noVNC v1.4+ removed ?password= URL param. Use MutationObserver to detect
       // when the credential dialog appears and fill it instantly.
       wv.executeJavaScript(`
@@ -45,8 +56,17 @@ function CloudPCView({ streamUrl, onBack }: CloudPCViewProps): JSX.Element {
       `).catch(() => {})
     }
 
-    wv.addEventListener('dom-ready', autoFillPassword)
-    return () => wv.removeEventListener('dom-ready', autoFillPassword)
+    const onConsole = (e: Event) => {
+      const msg = (e as any).message
+      if (msg) console.log('[noVNC]', msg)
+    }
+
+    wv.addEventListener('dom-ready', onDomReady)
+    wv.addEventListener('console-message', onConsole)
+    return () => {
+      wv.removeEventListener('dom-ready', onDomReady)
+      wv.removeEventListener('console-message', onConsole)
+    }
   }, [streamUrl])
 
   return (
@@ -61,7 +81,7 @@ function CloudPCView({ streamUrl, onBack }: CloudPCViewProps): JSX.Element {
           onClick={onBack}
           className="no-drag text-white/40 hover:text-white text-[11px] transition-colors cursor-pointer"
         >
-          Disconnect ✕
+          ← Back
         </button>
       </div>
 
