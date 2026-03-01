@@ -1,7 +1,9 @@
 node_modules/
 out/
 dist/
+dist-web/
 .env
 .env.*
 *.local
 .claude/
+.vercel

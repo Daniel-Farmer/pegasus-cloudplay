@@ -10,9 +10,11 @@ interface TitleBarProps {
   onViewChange?: (view: AppView) => void
 }
 
+const isElectron = typeof (window as any).electronAPI !== 'undefined'
+
 function TitleBar({ onOpenSettings = () => {}, currentView = 'home', onViewChange }: TitleBarProps): JSX.Element {
   return (
-    <div className="drag-region h-11 flex items-center justify-between px-5 shrink-0 border-b border-bg-border/40 relative">
+    <div className={`${isElectron ? 'drag-region' : ''} h-11 flex items-center justify-between px-5 shrink-0 border-b border-bg-border/40 relative`}>
       {/* Brand — text only, no icon */}
       <span className="no-drag text-text-primary text-[13px] font-semibold tracking-wide select-none">
         Pegasus Cloud
@@ -48,34 +50,38 @@ function TitleBar({ onOpenSettings = () => {}, currentView = 'home', onViewChang
           <Settings size={13} />
         </motion.button>
 
-        <Divider />
+        {isElectron && (
+          <>
+            <Divider />
 
-        {/* Minimize */}
-        <button
-          onClick={() => window.electronAPI?.minimize()}
-          className="w-7 h-7 rounded flex items-center justify-center text-text-muted hover:text-text-secondary hover:bg-bg-elevated transition-colors"
-          title="Minimize"
-        >
-          <svg width="10" height="2" viewBox="0 0 10 2" fill="none">
-            <rect width="10" height="2" rx="1" fill="currentColor" />
-          </svg>
-        </button>
+            {/* Minimize */}
+            <button
+              onClick={() => window.electronAPI?.minimize()}
+              className="w-7 h-7 rounded flex items-center justify-center text-text-muted hover:text-text-secondary hover:bg-bg-elevated transition-colors"
+              title="Minimize"
+            >
+              <svg width="10" height="2" viewBox="0 0 10 2" fill="none">
+                <rect width="10" height="2" rx="1" fill="currentColor" />
+              </svg>
+            </button>
 
-        {/* Close */}
-        <button
-          onClick={() => window.electronAPI?.close()}
-          className="w-7 h-7 rounded flex items-center justify-center text-text-muted hover:text-white hover:bg-red-600 transition-colors"
-          title="Close"
-        >
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-            <path
-              d="M1 1l8 8M9 1L1 9"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
-          </svg>
-        </button>
+            {/* Close */}
+            <button
+              onClick={() => window.electronAPI?.close()}
+              className="w-7 h-7 rounded flex items-center justify-center text-text-muted hover:text-white hover:bg-red-600 transition-colors"
+              title="Close"
+            >
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path
+                  d="M1 1l8 8M9 1L1 9"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+          </>
+        )}
       </div>
     </div>
   )

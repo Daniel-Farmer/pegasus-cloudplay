@@ -8,6 +8,7 @@ interface CloudPCViewProps {
 
 type WebviewEl = HTMLElement & { executeJavaScript: (code: string) => Promise<unknown> }
 
+const isElectron = typeof (window as any).electronAPI !== 'undefined'
 const api = (window as any).electronAPI as {
   enterCloudPC: () => void
   exitCloudPC: () => void
@@ -16,19 +17,19 @@ const api = (window as any).electronAPI as {
 function CloudPCView({ streamUrl, onBack }: CloudPCViewProps): JSX.Element {
   const webviewRef = useRef<WebviewEl>(null)
 
-  // Maximize window on mount, restore on unmount
+  // Maximize window on mount, restore on unmount (Electron only)
   useEffect(() => {
     api?.enterCloudPC()
     return () => api?.exitCloudPC()
   }, [])
 
+  // Electron webview: auto-fill VNC password + forward console
   useEffect(() => {
+    if (!isElectron) return
     const wv = webviewRef.current
     if (!wv) return
 
     const onDomReady = () => {
-      // noVNC v1.4+ removed ?password= URL param. Use MutationObserver to detect
-      // when the credential dialog appears and fill it instantly.
       wv.executeJavaScript(`
         (function() {
           function tryFill() {
@@ -85,14 +86,22 @@ function CloudPCView({ streamUrl, onBack }: CloudPCViewProps): JSX.Element {
         </button>
       </div>
 
-      {/* Full-screen webview */}
+      {/* Stream view — webview in Electron, iframe in browser */}
       {streamUrl ? (
-        <webview
-          ref={webviewRef as unknown as RefObject<HTMLElement>}
-          src={streamUrl}
-          className="flex-1 w-full"
-          allowpopups
-        />
+        isElectron ? (
+          <webview
+            ref={webviewRef as unknown as RefObject<HTMLElement>}
+            src={streamUrl}
+            className="flex-1 w-full"
+            allowpopups
+          />
+        ) : (
+          <iframe
+            src={streamUrl}
+            className="flex-1 w-full border-0"
+            allow="fullscreen"
+          />
+        )
       ) : (
         <div className="flex-1 flex items-center justify-center">
           <p className="text-white/30 text-[13px]">Connecting…</p>
