@@ -82,7 +82,18 @@ function App(): JSX.Element {
 
   async function handleLaunch() {
     setPodStatus('starting')
-    const { data, error } = await supabase.functions.invoke('pod-manage', { body: { action: 'start' } })
+
+    // Detect user's approximate location for geo-proximity instance selection
+    let userCountry = ''
+    try {
+      const geo = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(3000) })
+      const geoData = await geo.json()
+      userCountry = geoData.country_code ?? ''
+    } catch { /* proceed without geo — edge function falls back to global */ }
+
+    const { data, error } = await supabase.functions.invoke('pod-manage', {
+      body: { action: 'start', userCountry }
+    })
     if (error || data?.error) {
       setPodStatus('none')
       return
@@ -96,8 +107,7 @@ function App(): JSX.Element {
     setStreamUrl('')
   }
 
-  async function handleDisconnect() {
-    await handleStop()
+  function handleDisconnect() {
     setView('home')
   }
 

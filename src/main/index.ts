@@ -32,6 +32,24 @@ if (!gotTheLock) {
     ipcMain.on('window:close', () => mainWindow?.close())
     ipcMain.on('open-external', (_event, url: string) => shell.openExternal(url))
 
+    // Expand window for cloud PC streaming, restore for normal UI
+    ipcMain.on('window:enter-cloudpc', () => {
+      if (!mainWindow) return
+      mainWindow.setResizable(true)
+      mainWindow.setMinimumSize(800, 600)
+      mainWindow.setMaximumSize(0, 0)
+      mainWindow.maximize()
+    })
+    ipcMain.on('window:exit-cloudpc', () => {
+      if (!mainWindow) return
+      mainWindow.unmaximize()
+      mainWindow.setSize(950, 620)
+      mainWindow.setMinimumSize(950, 620)
+      mainWindow.setMaximumSize(950, 620)
+      mainWindow.setResizable(false)
+      mainWindow.center()
+    })
+
     createWindow()
 
     app.on('activate', () => {
@@ -69,6 +87,11 @@ function createWindow(): void {
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
+  })
+
+  // Allow webview (noVNC) to make WebSocket connections and load insecure content
+  mainWindow.webContents.on('will-attach-webview', (_event, webPreferences) => {
+    webPreferences.allowRunningInsecureContent = true
   })
 
   if (isDev && process.env['ELECTRON_RENDERER_URL']) {
